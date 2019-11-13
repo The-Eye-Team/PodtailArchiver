@@ -10,11 +10,32 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"sync"
+	"time"
 
 	"github.com/labstack/gommon/color"
+	"github.com/remeh/sizedwaitgroup"
 	"github.com/subosito/gozaru"
 )
+
+var asciiArt = `
+╔═══════════════════════════════════════════════════════════════════════╗
+║                                                                       ║
+║ /$$$$$$$$ /$$                         /$$$$$$$$                       ║
+║ |__  $$__/| $$                        | $$_____/                      ║
+║    | $$   | $$$$$$$   /$$$$$$         | $$       /$$   /$$  /$$$$$$   ║
+║    | $$   | $$__  $$ /$$__  $$       | $$$$$   | $$  | $$ /$$__  $$   ║
+║    | $$   | $$  \ $$| $$$$$$$$|       | $$__/   | $$  | $$| $$$$$$$$  ║
+║    | $$   | $$  | $$| $$_____/        | $$      | $$  | $$| $$_____/  ║
+║    | $$   | $$  | $$|  $$$$$$$        | $$$$$$$$|  $$$$$$$|  $$$$$$$  ║
+║    |__/   |__/  |__/ \_______/        |________/ \____  $$ \_______/  ║
+║                                                  /$$  | $$            ║
+║                                                 |  $$$$$$/            ║
+║                                                  \______/             ║
+║                                                                       ║
+║ podtail.com Archiver v1.1.0 By The French Guy @ The-Eye.eu            ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+`
 
 // Podcast struct
 type Podcast struct {
@@ -97,7 +118,7 @@ func downloadPodcast(podcastJSON *Podcast, id string) {
 	downloadFile(podcastPath+id+" - "+gozaru.Sanitize(podcastJSON.Media.Title)+path.Ext(podcastJSON.Media.Poster), podcastJSON.Media.Poster)
 }
 
-func getPodcastJSON(URL string, id string, worker *sync.WaitGroup) {
+func getPodcastJSON(URL string, id string, worker *sizedwaitgroup.SizedWaitGroup) {
 	defer worker.Done()
 
 	podcastJSON := new(Podcast)
@@ -117,20 +138,14 @@ func getPodcastJSON(URL string, id string, worker *sync.WaitGroup) {
 }
 
 func crawl() {
-	var worker sync.WaitGroup
+	var worker = sizedwaitgroup.New(arguments.Concurrency)
 	var id string
-	var count int
 
 	// Loop through pages
 	for index := arguments.StartID; index <= arguments.StopID; index++ {
-		worker.Add(1)
-		count++
+		worker.Add()
 		id = strconv.Itoa(index)
 		go getPodcastJSON("https://podtail.com/podcast/episode/json/?id="+id, id, &worker)
-		if count == arguments.Concurrency {
-			worker.Wait()
-			count = 0
-		}
 	}
 }
 
@@ -140,6 +155,10 @@ func main() {
 
 	// Create output directory
 	os.MkdirAll(arguments.Output, os.ModePerm)
+
+	fmt.Println(asciiArt)
+
+	time.Sleep(5 * time.Second)
 
 	crawl()
 }
